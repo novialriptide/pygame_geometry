@@ -199,29 +199,30 @@ Polygon Methods
 
       .. ## Polygon.rotate_ip ##
 
-    .. method:: add_vertex <<NOT YET IMPLEMENTED>>
+    .. method:: insert_vertex
 
-        | :sl:`adds a vertex to the polygon`
-        | :sg:`add_vertex(index, (x, y)) -> None`
-        | :sg:`add_vertex(index, Vector2) -> None`
+        | :sl:`inserts a new vertex to the polygon`
+        | :sg:`insert_vertex(index, (x, y)) -> None`
+        | :sg:`insert_vertex(index, Vector2) -> None`
 
-        Adds a vertex at the given index to the `Polygon`. Always returns None.
+        Inserts a vertex at the given index to the `Polygon`'s vertices. Always returns None.
 
         .. note::
-            The given index must be between 0 and the number of vertices - 1.
-            If the index is 0, the vertex will be added at the beginning of the list of
-            vertices. If the index is the number of vertices of the `Polygon`, the vertex
-            will be added at the end of the list of vertices.
+            The given index can be any positive or negative integer. If the index
+            is negative, it will be counted from the end of the list of vertices.
+            For example, if the index is -1, the vertex will be inserted at the end of the
+            list of vertices. If the index is positive and it is greater than the number of
+            vertices, the vertex will be inserted at the end of the list of vertices.
 
         .. note::
             You can add as many vertices as you want, but keep in mind that the more
-            vertices you have, the more CPU time it will take to calculate the collisions,
-            move the `Polygon`, copying, etc. It is recommended to keep the number of vertices
-            as low as possible and as close as the strict minimum as possible.
+            vertices you have, the more CPU time it will take to calculate collisions,
+            moving the `Polygon`, copying, etc. It is recommended to keep the number of vertices
+            as low as possible or as close as the strict minimum as possible.
 
       .. ## Polygon.add_vertex ##
 
-    .. method:: remove_vertex <<NOT YET IMPLEMENTED>>
+    .. method:: remove_vertex
 
         | :sl:`removes a vertex from the polygon`
         | :sg:`remove_vertex(index) -> None`
@@ -230,9 +231,11 @@ Polygon Methods
         has more than three vertices already. Always returns None.
 
         .. note::
-            The given index must be between 0 and the number of vertices - 1.
+            The given index must be less than the number of vertices of the `Polygon`.
             If the index is 0, the first vertex will be removed. If the index is the number
             of vertices of the `Polygon` minus one, the last vertex will be removed.
+            If a negative index is given, it will be counted from the end of the list of
+            vertices.
         .. note::
             Since the minimum number of vertices for a `Polygon` is 3 (triangle), you
             cannot remove a vertex if the `Polygon` only has 3 vertices. If you try,
@@ -240,7 +243,7 @@ Polygon Methods
 
       .. ## Polygon.remove_vertex ##
 
-    .. method:: pop_vertex <<NOT YET IMPLEMENTED>>
+    .. method:: pop_vertex
 
         | :sl:`removes and returns a vertex from the polygon`
         | :sg:`pop_vertex(index) -> (x, y)`
@@ -249,9 +252,11 @@ Polygon Methods
         it has more than three vertices already. Returns the removed vertex as a tuple.
 
         .. note::
-            The given index must be between 0 and the number of vertices - 1.
+            The given index must be less than the number of vertices of the `Polygon`.
             If the index is 0, the first vertex will be removed. If the index is the number
             of vertices of the `Polygon` minus one, the last vertex will be removed.
+            If a negative index is given, it will be counted from the end of the list of
+            vertices.
         .. note::
             Since the minimum number of vertices for a `Polygon` is 3 (triangle), you
             cannot remove a vertex if the `Polygon` only has 3 vertices. If you try,

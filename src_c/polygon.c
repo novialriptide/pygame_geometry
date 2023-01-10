@@ -504,6 +504,167 @@ pg_polygon_collidepoint(pgPolygonObject *self, PyObject *const *args,
     return PyBool_FromLong(pgCollision_PolygonPoint(&self->polygon, px, py));
 }
 
+static PyObject *
+pg_polygon_insert_vertex(pgPolygonObject *self, PyObject *const *args,
+                         Py_ssize_t nargs)
+{
+    double x, y;
+    int vertex_index;
+    pgPolygonBase *polygon = &self->polygon;
+    Py_ssize_t verts_num = polygon->verts_num;
+
+    if (nargs != 2) {
+        return RAISE(PyExc_TypeError,
+                     "insert_vertex requires a pair of numbers");
+    }
+
+    if (!pg_IntFromObj(args[0], &vertex_index)) {
+        return RAISE(PyExc_TypeError, "Invalid vertex index");
+    }
+
+    if (!pg_TwoDoublesFromObj(args[1], &x, &y)) {
+        return RAISE(PyExc_TypeError, "Invalid vertex coordinates");
+    }
+
+    PyMem_Resize(polygon->vertices, double, verts_num * 2 + 2);
+
+    if (!polygon->vertices) {
+        return PyErr_NoMemory();
+    }
+
+    if (vertex_index < 0) {
+        vertex_index += verts_num + 1;
+        if (vertex_index < 0) {
+            vertex_index = 0;
+        }
+    }
+    else if (vertex_index > verts_num) {
+        vertex_index = verts_num;
+    }
+
+    if (vertex_index < verts_num) {
+        memmove(polygon->vertices + vertex_index * 2 + 2,
+                polygon->vertices + vertex_index * 2,
+                (verts_num - vertex_index) * 2 * sizeof(double));
+    }
+
+    polygon->vertices[vertex_index * 2] = x;
+    polygon->vertices[vertex_index * 2 + 1] = y;
+
+    polygon->c_x = (polygon->c_x * verts_num + x) / (verts_num + 1);
+    polygon->c_y = (polygon->c_y * verts_num + y) / (verts_num + 1);
+
+    polygon->verts_num++;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+pg_polygon_remove_vertex(pgPolygonObject *self, PyObject *arg)
+{
+    int vertex_index;
+    pgPolygonBase *polygon = &self->polygon;
+    Py_ssize_t verts_num = polygon->verts_num;
+
+    if (verts_num == 3) {
+        return RAISE(PyExc_IndexError,
+                     "cannot remove a vertex from a triangle");
+    }
+
+    if (!pg_IntFromObj(arg, &vertex_index)) {
+        return RAISE(PyExc_TypeError, "Invalid vertex index");
+    }
+
+    if (vertex_index < 0) {
+        vertex_index += verts_num;
+        if (vertex_index < 0) {
+            vertex_index = 0;
+        }
+    }
+    else if (vertex_index >= verts_num) {
+        return RAISE(PyExc_IndexError, "vertex index out of range");
+    }
+
+    polygon->c_x =
+        (polygon->c_x * verts_num - polygon->vertices[vertex_index * 2]) /
+        (verts_num - 1);
+    polygon->c_y =
+        (polygon->c_y * verts_num - polygon->vertices[vertex_index * 2 + 1]) /
+        (verts_num - 1);
+
+    if (vertex_index < verts_num) {
+        memmove(polygon->vertices + vertex_index * 2,
+                polygon->vertices + vertex_index * 2 + 2,
+                (verts_num - vertex_index - 1) * 2 * sizeof(double));
+    }
+
+    PyMem_Resize(polygon->vertices, double, verts_num * 2 - 2);
+
+    if (!polygon->vertices) {
+        return PyErr_NoMemory();
+    }
+
+    polygon->verts_num--;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+pg_polygon_pop_vertex(pgPolygonObject *self, PyObject *arg)
+{
+    int vertex_index = -1;
+    pgPolygonBase *polygon = &self->polygon;
+    Py_ssize_t verts_num = polygon->verts_num;
+
+    if (verts_num == 3) {
+        return RAISE(PyExc_IndexError, "cannot pop a vertex from a triangle");
+    }
+
+    if (!pg_IntFromObj(arg, &vertex_index)) {
+        return RAISE(PyExc_TypeError, "invalid vertex index");
+    }
+
+    if (vertex_index < 0) {
+        vertex_index += verts_num;
+        if (vertex_index < 0) {
+            vertex_index = 0;
+        }
+    }
+    else if (vertex_index >= verts_num) {
+        return RAISE(PyExc_IndexError, "vertex index out of range");
+    }
+
+    polygon->c_x =
+        (polygon->c_x * verts_num - polygon->vertices[vertex_index * 2]) /
+        (verts_num - 1);
+    polygon->c_y =
+        (polygon->c_y * verts_num - polygon->vertices[vertex_index * 2 + 1]) /
+        (verts_num - 1);
+
+    PyObject *vertex =
+        pg_TupleFromDoublePair(polygon->vertices[vertex_index * 2],
+                               polygon->vertices[vertex_index * 2 + 1]);
+    if (!vertex) {
+        return NULL;
+    }
+
+    if (vertex_index < verts_num) {
+        memmove(polygon->vertices + vertex_index * 2,
+                polygon->vertices + vertex_index * 2 + 2,
+                (verts_num - vertex_index - 1) * 2 * sizeof(double));
+    }
+
+    PyMem_Resize(polygon->vertices, double, verts_num * 2 - 2);
+
+    if (!polygon->vertices) {
+        return PyErr_NoMemory();
+    }
+
+    polygon->verts_num--;
+
+    return vertex;
+}
+
 static void
 _pg_rotate_polygon_helper(pgPolygonBase *poly, double angle)
 {
@@ -627,6 +788,10 @@ static struct PyMethodDef pg_polygon_methods[] = {
      NULL},
     {"__copy__", (PyCFunction)pg_polygon_copy, METH_NOARGS, NULL},
     {"copy", (PyCFunction)pg_polygon_copy, METH_NOARGS, NULL},
+    {"insert_vertex", (PyCFunction)pg_polygon_insert_vertex, METH_FASTCALL,
+     NULL},
+    {"remove_vertex", (PyCFunction)pg_polygon_remove_vertex, METH_O, NULL},
+    {"pop_vertex", (PyCFunction)pg_polygon_pop_vertex, METH_O, NULL},
     {NULL, NULL, 0, NULL}};
 
 static PyObject *
@@ -639,6 +804,65 @@ static PyObject *
 pg_polygon_get_vertices(pgPolygonObject *self, void *closure)
 {
     return _pg_polygon_vertices_aslist(&self->polygon);
+}
+
+static int
+pg_polygon_set_vertices(pgPolygonObject *self, PyObject *value, void *closure)
+{
+    PyObject **new_vertices = NULL;
+    Py_ssize_t i, len;
+
+    DEL_ATTR_NOT_SUPPORTED_CHECK_NO_NAME(value);
+
+    pgPolygonBase *s_poly = &self->polygon;
+
+    if (!PySequence_FAST_CHECK(value)) {
+        PyErr_SetString(PyExc_TypeError, "vertices must be a sequence");
+        return -1;
+    }
+
+    len = PySequence_Fast_GET_SIZE(value);
+
+    if (len < 3) {
+        PyErr_SetString(PyExc_ValueError,
+                        "vertices must have at least 3 items");
+        return -1;
+    }
+
+    new_vertices = PySequence_Fast_ITEMS(value);
+
+    if (s_poly->verts_num != len) {
+        PyMem_Resize(s_poly->vertices, double, len * 2);
+        if (!s_poly->vertices) {
+            PyErr_NoMemory();
+            return -1;
+        }
+        s_poly->verts_num = len;
+    }
+
+    s_poly->c_x = 0.0;
+    s_poly->c_y = 0.0;
+
+    for (i = 0; i < len; i++) {
+        double x, y;
+        if (!pg_TwoDoublesFromObj(new_vertices[i], &x, &y)) {
+            PyErr_SetString(
+                PyExc_TypeError,
+                "Invalid coordinate, must be a sequence of 2 numbers");
+            return -1;
+        }
+        s_poly->vertices[i * 2] = x;
+        s_poly->vertices[i * 2 + 1] = y;
+        s_poly->c_x += x;
+        s_poly->c_y += y;
+    }
+
+    s_poly->verts_num = len;
+
+    s_poly->c_x /= len;
+    s_poly->c_y /= len;
+
+    return 0;
 }
 
 static int
@@ -843,8 +1067,8 @@ static PyGetSetDef pg_polygon_getsets[] = {
      NULL, NULL},
     {"verts_num", (getter)pg_polygon_get_verts_num, NULL,
      "Number of vertices of the polygon", NULL},
-    {"vertices", (getter)pg_polygon_get_vertices, NULL,
-     "Vertices of the polygon", NULL},
+    {"vertices", (getter)pg_polygon_get_vertices,
+     (setter)pg_polygon_set_vertices, "Vertices of the polygon", NULL},
     {"perimeter", (getter)pg_polygon_get_perimeter, NULL,
      "Perimeter of the polygon", NULL},
     {"__safe_for_unpickling__", (getter)pg_polygon_getsafepickle, NULL, NULL,
