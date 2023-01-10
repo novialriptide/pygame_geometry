@@ -138,6 +138,12 @@ collidepoint_tests = [
     ("NC float list", "po100.collidepoint([0.0, 1000.0])"),
 ]
 
+get_bounding_box_tests = [
+    ("3", "po3.get_bounding_box()"),
+    ("4", "po4.get_bounding_box()"),
+    ("100", "po100.get_bounding_box()"),
+]
+
 GROUPS = [
     ("Instatiation", instatiation_tests),
     ("Attribute Getters", getters_tests),
@@ -148,6 +154,7 @@ GROUPS = [
     ("Rotate", rotate_tests),
     ("Rotate_ip", rotate_ip_tests),
     ("Collidepoint", collidepoint_tests),
+    ("Get Bounding Box", get_bounding_box_tests),
 ]
 
 if __name__ == "__main__":
